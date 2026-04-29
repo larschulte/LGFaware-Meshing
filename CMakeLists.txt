@@ -67,6 +67,7 @@ set(Sophus_LIBRARIES libSophus.so)
 message(Eigen: ${EIGEN3_INCLUDE_DIR})
 
 include_directories(
+	${CATKIN_DEVEL_PREFIX}/include
         ${catkin_INCLUDE_DIRS}
         ${EIGEN3_INCLUDE_DIR}
         ${PCL_INCLUDE_DIRS}
@@ -154,3 +155,7 @@ target_include_directories(my_mesh PRIVATE
 add_subdirectory(src/odometry/voxelmap)
 add_subdirectory(src/odometry/fastlio)
 add_subdirectory(src/odometry/gt_odometry)
+
+add_dependencies(my_mesh ${${PROJECT_NAME}_EXPORTED_TARGETS})
+add_dependencies(voxel_mapping_odom ${${PROJECT_NAME}_EXPORTED_TARGETS})
+add_dependencies(fastlio_mapping ${${PROJECT_NAME}_EXPORTED_TARGETS})
