@@ -463,8 +463,8 @@ int main(int argc, char **argv) {
     std::stringstream ss;
     ss << std::put_time(&now_tm, "%Y-%m-%d_%H-%M-%S");
     std::string file_name_str = ss.str();
-    ptcl_save_path += "/" + dataset_name + "_" + file_name_str + "/";
-    mkdir(ptcl_save_path.c_str(), 0777);
+    ptcl_save_path += "/";
+    //mkdir(ptcl_save_path.c_str(), 0777);
 
 
     // 读取所有参数并保存
@@ -523,11 +523,15 @@ int main(int argc, char **argv) {
     non_plane_map->N_pts = N_np;
     non_plane_map->minimum_pt_dis = min_pt_dis;
 
-    string log_save_path3 = ptcl_save_path + "log_time.txt";
+    string log_save_path3 = ptcl_save_path + "runtime.txt";
     fpTime = fopen(log_save_path3.c_str(), "w");
 
-    // 打开GUI界面，放在if判断中会报错
-    std::thread thr_gui = std::thread( &GL_gui::display, &m_gui );
+    // 打开GUI界面，放在if判断中会报错 (Fixed: properly detaching the thread)
+    std::thread thr_gui;
+    if (if_gui) {
+        thr_gui = std::thread( &GL_gui::display, &m_gui );
+        thr_gui.detach();
+    }
     PointCloudXYZI::Ptr pcl_normal(new PointCloudXYZI());
 
 //------------------------------------------------------------------------------------------------------
@@ -548,6 +552,13 @@ int main(int argc, char **argv) {
 
         cout << "***Mesh Reconstruction*** points buffer size is " << ptcl_buffer.size() << endl;
         PointCloudXYZI::Ptr ptcl_frame = ptcl_buffer.front();
+        if (ptcl_frame->points.empty()) {
+            cout << "Empty point cloud!" << endl;
+            time_buffer.pop_front();
+            ptcl_buffer.pop_front();
+            odo_buffer.pop_front();
+            continue;
+        }
         frame_beg_time = time_buffer.front();
         frame_end_time = frame_beg_time + ptcl_frame->points.back().curvature / double(1000);
         time_buffer.pop_front();
@@ -568,14 +579,17 @@ int main(int argc, char **argv) {
         Eigen::Matrix< double, 7, 1 > pose_vec;
         pose_vec.head< 4 >() = rot_q.coeffs();
         pose_vec.block( 4, 0, 3, 1 ) = pos_vec;
-        // 每帧的点云xyzi + pose
-        for ( int i = 0; i < ptcl_frame->points.size(); i++ )
-        {
-            m_gui.g_eigen_vec_vec[ frame_idx ].first.emplace_back( ptcl_frame->points[ i ].x, ptcl_frame->points[ i ].y, ptcl_frame->points[ i ].z,
-                                                             ptcl_frame->points[ i ].intensity );
+
+        if (if_gui) {
+            // 每帧的点云xyzi + pose
+            for ( int i = 0; i < ptcl_frame->points.size(); i++ )
+            {
+                m_gui.g_eigen_vec_vec[ frame_idx ].first.emplace_back( ptcl_frame->points[ i ].x, ptcl_frame->points[ i ].y, ptcl_frame->points[ i ].z,
+                                                                 ptcl_frame->points[ i ].intensity );
+            }
+            m_gui.g_eigen_vec_vec[ frame_idx ].second = pose_vec;
+            m_gui.g_current_frame = frame_idx;
         }
-        m_gui.g_eigen_vec_vec[ frame_idx ].second = pose_vec;
-        m_gui.g_current_frame = frame_idx;
 
 
         double time_diff = std::abs( frame_beg_time - odo_frame->header.stamp.toSec());
@@ -1414,7 +1428,7 @@ int main(int argc, char **argv) {
     }
 
     // 去除不连接三角形的点
-    string mesh_save_dir_all = ptcl_save_path + "all.ply";
+    string mesh_save_dir_all = ptcl_save_path + "mesh.ply";
     non_plane_map->save_to_ply_without_redundancy(mesh_save_dir_all);
 
 
@@ -1424,36 +1438,3 @@ int main(int argc, char **argv) {
 
     return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

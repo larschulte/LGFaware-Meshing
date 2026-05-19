@@ -3,9 +3,9 @@
 
     <arg name="rviz" default="false" />
 
-    <rosparam command="load" file="$(find online_mesh)/config/maicity_gt_mesh.yaml" />
+    <rosparam command="load" file="$(find online_mesh)/config/kitti.yaml" subst_value="true" />
 
-    <node pkg="online_mesh" type="gt_odom" name="gt_odom" output="screen" required="true"/>
+    <node pkg="online_mesh" type="gt_odom" name="gt_odom" output="screen"/>
 
     <node pkg="online_mesh" type="my_mesh" name="my_mesh" output="screen"/>
 

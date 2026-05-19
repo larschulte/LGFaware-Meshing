@@ -166,38 +166,37 @@ int main(int argc, char** argv) {
     file_pose.close();
 
     // 读取外参
-    Eigen::Matrix4d calib_T;
+    Eigen::Matrix4d calib_T = Eigen::Matrix4d::Identity(); // safe default
     if (dataset_num == 1 || dataset_num == 2 || dataset_num == 3)
     {
         std::ifstream file_calib(calib_dir);
         std::string line_tr;
+        bool found = false;
         while (std::getline(file_calib, line_tr)) {
             if (line_tr.find("Tr:") != std::string::npos) {
-                std::istringstream iss(line_tr.substr(line_tr.find("Tr:") + 3));
-                std::vector<double> values;
-                double value;
-                while (iss >> value) {
-                    values.push_back(value);
-                }
-
-                calib_T(0, 0) = values[0];
-                calib_T(0, 1) = values[1];
-                calib_T(0, 2) = values[2];
-                calib_T(0, 3) = values[3];
-                calib_T(1, 0) = values[4];
-                calib_T(1, 1) = values[5];
-                calib_T(1, 2) = values[6];
-                calib_T(1, 3) = values[7];
-                calib_T(2, 0) = values[8];
-                calib_T(2, 1) = values[9];
-                calib_T(2, 2) = values[10];
-                calib_T(2, 3) = values[11];
-                calib_T(3, 0) = 0;
-                calib_T(3, 1) = 0;
-                calib_T(3, 2) = 0;
-                calib_T(3, 3) = 1;
-
+                line_tr = line_tr.substr(line_tr.find("Tr:") + 3);
+                found = true;
                 break;
+            }
+        }
+        // Fallback: if no "Tr:" label, rewind and read the first non-empty line
+        if (!found) {
+            file_calib.clear();
+            file_calib.seekg(0);
+            while (std::getline(file_calib, line_tr)) {
+                if (!line_tr.empty()) { found = true; break; }
+            }
+        }
+        if (found) {
+            std::istringstream iss(line_tr);
+            std::vector<double> values;
+            double value;
+            while (iss >> value) values.push_back(value);
+            if (values.size() >= 12) {
+                for (int r = 0; r < 3; r++)
+                    for (int c = 0; c < 4; c++)
+                        calib_T(r, c) = values[r * 4 + c];
+                calib_T(3, 0) = calib_T(3, 1) = calib_T(3, 2) = 0; calib_T(3, 3) = 1;
             }
         }
         std::cout << "***GT odometry*** extrinsic matrix:\n" << calib_T << std::endl;
@@ -224,16 +223,19 @@ int main(int argc, char** argv) {
 
         if(dataset_num == 1) //kitti
         {
-            point_cloud_path << data_dir << "/velodyne/" << std::setfill('0') << std::setw(6) << frame_idx << ".bin";
+            point_cloud_path << data_dir << "/pointcloud_bin/" << std::setfill('0') << std::setw(6) << frame_idx << ".bin";
+            std::cout << "Data Path: " << point_cloud_path.str() << std::endl;
             if (!read_bin(point_cloud_path.str(), *cloud)) {
+                std::cout << "Data Path: " << point_cloud_path.str() << std::endl;
                 std::cout << "***GT odometry*** No more data or path error!" << std::endl;
                 break;
             }
         }
         else if(dataset_num == 2) //mai_city
         {
-            point_cloud_path << data_dir << "/velodyne/" << std::setfill('0') << std::setw(5) << frame_idx << ".bin";
+            point_cloud_path << data_dir << "/pointcloud_bin/" << std::setfill('0') << std::setw(5) << frame_idx << ".bin";
             if (!read_bin(point_cloud_path.str(), *cloud)) {
+                std::cout << "Data Path: " << point_cloud_path.str() << std::endl;
                 std::cout << "***GT odometry*** No more data or path error!" << std::endl;
                 break;
             }
@@ -243,6 +245,7 @@ int main(int argc, char** argv) {
             int ncd_frame_idx = frame_idx + 500;
             point_cloud_path << data_dir << "/pcd/" << std::setfill('0') << std::setw(5) << ncd_frame_idx << ".pcd";
             if (!read_pcd(point_cloud_path.str(), *cloud)) {
+                std::cout << "Data Path: " << point_cloud_path.str() << std::endl;
                 std::cout << "***GT odometry*** No more data or path error!" << std::endl;
                 break;
             }
@@ -251,6 +254,7 @@ int main(int argc, char** argv) {
         {
             point_cloud_path << data_dir << "/lidars/" << std::setfill('0') << std::setw(8) << frame_idx << ".pcd";
             if (!read_pcd(point_cloud_path.str(), *cloud)) {
+                std::cout << "Data Path: " << point_cloud_path.str() << std::endl;
                 std::cout << "***GT odometry*** No more data or path error!" << std::endl;
                 break;
             }
